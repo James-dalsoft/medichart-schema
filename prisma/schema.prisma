@@ -1,0 +1,691 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+/// /////////////////////////////////////////////////////////
+/// /////////////////////////////////////////////////////////
+model User {
+  id                   Int         @id @default(autoincrement())
+  /// 수정일
+  chgDate              DateTime    @updatedAt
+  /// 삭제여부
+  del                  Boolean     @default(false)
+  /// 등록일
+  regDate              DateTime    @default(now())
+  /// 아이디
+  username             String      @unique
+  /// 비밀번호
+  passwordHash         String
+  /// otp 비밀키
+  otpSecret            String?
+  /// otp 인증여부
+  otpVerified          Boolean     @default(false)
+  /// 활성화 여부
+  isActive             Boolean     @default(true)
+  /// 실명
+  realName             String      @default("")
+  /// 계정 잠금 임계값(비밀번호 오류 횟수)이 5로 설정, 임계값 초과시 계정 잠김(isActive = false)
+  loginErrCnt          Int         @default(0)
+  /// 패스워드 최대 사용기간이 90일(12주), 기간 초과시 비밀번호 변경 진행, 패스워드 강제 설정했을 경우에도 적용
+  passwordAge          DateTime    @default(now())
+  /// 이전 비밀번호 해시
+  passwordHashPrev     String      @default("")
+  /// API 통계 포함 여부
+  apiStatInclude       Boolean     @default(true)
+  /// 생년월일
+  birthDate            DateTime?
+  /// 근무 기관명
+  company              String?
+  /// 근무 기관 분류
+  companyCategory      String?
+  /// 국가번호
+  countryCode          String?
+  /// 이메일
+  email                String?
+  /// 영문 이름
+  engName              String?     @default("")
+  /// 직종
+  jobCategory          String?
+  /// 면허번호
+  licenseNumber        String?
+  /// 전문의 자격번호
+  licenseNumberSpecial String?
+  /// 전공과목
+  major                String?
+  /// 전화번호
+  phoneNumber          String?
+  /// 근무 형태
+  workType             String?
+  apiLog               ApiLog[]
+  tokens               Token[]
+  userRoles            UserRole[]
+  UserVoice            UserVoice[]
+}
+
+model UserRole {
+  id       Int      @id @default(autoincrement())
+  /// 수정일
+  chgDate  DateTime @updatedAt
+  /// 삭제여부
+  del      Boolean  @default(false)
+  /// 등록일
+  regDate  DateTime @default(now())
+  /// 권한명 - ADMIN, USER
+  roleName RoleName
+  /// 유저 아이디
+  userId   Int
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleName])
+}
+
+model UserVoice {
+  id         BigInt   @id @default(autoincrement())
+  /// 문의 제목
+  title      String   @db.VarChar(300)
+  /// 문의 종류
+  category   String   @db.VarChar(100)
+  /// 사용자 의견
+  content    String   @db.Text
+  /// OCR 키워드 (JSON)
+  ocrKeyword String   @db.Text
+  /// 유저 아이디
+  userId     Int
+  /// 등록일
+  regDate    DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId], map: "UserVoice_userId_fkey")
+}
+
+model Token {
+  id              Int      @id @default(autoincrement())
+  /// 유저 아이디
+  userId          Int
+  /// 로테이션 카운터
+  rotationCounter Int      @default(1)
+  /// 수정일
+  chgDate         DateTime @updatedAt
+  /// 등록일
+  createdAt       DateTime @default(now())
+  /// 차단여부
+  blocked         Boolean  @default(false)
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId], map: "Token_userId_fkey")
+}
+
+model ApiLog {
+  id                 BigInt               @id @default(autoincrement())
+  /// 유저 아이디
+  userId             Int?
+  url                String?              @db.VarChar(256)
+  /// body 파라메터 데이터, 1024 글자 넘어가면 잘라서 저장하므로 완벽한 JSON 될 수 없으므로 주의
+  params             String?              @db.VarChar(1024)
+  /// 등록일
+  regDate            DateTime             @default(now())
+  user               User?                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ApiLogExtendedDrug ApiLogExtendedDrug[]
+
+  @@index([url], map: "url_IDX")
+  @@index([regDate], map: "regDateIDX")
+  @@index([userId], map: "ApiLog_userId_fkey")
+}
+
+model ApiLogExtendedDrug {
+  id                BigInt @id @default(autoincrement())
+  apiLogId          BigInt
+  /// 해당 API 호출 조회 시간 (상호작용 DB 조회 시간)
+  timeDrug          Int
+  /// App에서 화면 인식 API 호출 소요시간 (현재 Naver)
+  timeRecogAPI      Int?
+  paramDrugCount    Int    @default(0)
+  resultDrugCount   Int    @default(0)
+  resultEngIngCount Int    @default(0)
+  apiLog            ApiLog @relation(fields: [apiLogId], references: [id], onDelete: Cascade)
+
+  @@index([apiLogId], map: "ApiLogExtendedDrug_apiLogId_fkey")
+}
+
+model ApiLogExtendedDrugCount {
+  id    BigInt @id @default(autoincrement())
+  /// 호출한 API 이름
+  api   String
+  drug  String
+  count Int    @default(0)
+
+  @@unique([api, drug], name: "UNIQ_API_DRUG")
+}
+
+model AdLowBanner {
+  id         BigInt    @id @default(autoincrement())
+  /// 등록일
+  regDate    DateTime  @default(now()) @db.DateTime(6)
+  /// 종료일
+  endDate    DateTime? @db.DateTime(6)
+  /// 수정일
+  chgDate    DateTime? @db.DateTime(6)
+  conclusion String    @db.Text
+  reference  String    @db.VarChar(256)
+  url        String    @db.VarChar(512)
+  sponsored  String    @db.VarChar(256)
+  sub        String    @db.VarChar(128)
+}
+
+model BoardArticle {
+  id              BigInt            @id @default(autoincrement())
+  chgDate         DateTime?         @db.DateTime(6)
+  del             Boolean           @default(false)
+  regDate         DateTime?         @db.DateTime(6)
+  endDate         DateTime?         @db.DateTime(6)
+  isHead          Boolean           @default(dbgenerated("b'0'")) @db.Bit(1)
+  isView          Boolean           @default(dbgenerated("b'1'")) @db.Bit(1)
+  link            String?           @db.VarChar(255)
+  memo            String            @db.LongText
+  readCnt         Int               @default(0)
+  regName         String?           @db.VarChar(255)
+  sortIdx         BigInt            @default(0)
+  startDate       DateTime?         @db.DateTime(6)
+  subtitle1       String?           @db.VarChar(255)
+  subtitle2       String?           @db.VarChar(255)
+  subtitle3       String?           @db.VarChar(255)
+  subtitle4       String?           @db.VarChar(255)
+  subtitle5       String?           @db.VarChar(255)
+  title           String            @db.VarChar(255)
+  board_info_id   BigInt?
+  BoardInfo       BoardInfo?        @relation(fields: [board_info_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK_BoardInfo_BoardArticle")
+  BoardAttachFile BoardAttachFile[]
+
+  @@index([board_info_id], map: "FK_BoardInfo_BoardArticle")
+}
+
+model BoardAttachFile {
+  id               BigInt        @id @default(autoincrement())
+  chgDate          DateTime?     @db.DateTime(6)
+  del              Boolean       @default(false)
+  regDate          DateTime?     @db.DateTime(6)
+  fileExt          String?       @db.VarChar(255)
+  fileName         String        @db.VarChar(255)
+  filePath         String        @db.VarChar(255)
+  fileSize         BigInt?
+  isHead           Boolean       @default(dbgenerated("b'0'")) @db.Bit(1)
+  isImage          Boolean       @default(dbgenerated("b'0'")) @db.Bit(1)
+  isVideo          Boolean       @default(dbgenerated("b'0'")) @db.Bit(1)
+  isView           Boolean       @default(dbgenerated("b'1'")) @db.Bit(1)
+  realFileName     String        @db.VarChar(255)
+  sortIdx          BigInt        @default(0)
+  thumbnailPic     String?       @db.MediumText
+  urlPath          String        @db.VarChar(255)
+  board_article_id BigInt?
+  BoardArticle     BoardArticle? @relation(fields: [board_article_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK_BoardArticle_BoardAttachFile")
+
+  @@index([board_article_id], map: "FK_BoardArticle_BoardAttachFile")
+}
+
+model BoardInfo {
+  id               BigInt         @id @default(autoincrement())
+  chgDate          DateTime?      @db.DateTime(6)
+  del              Boolean        @default(false)
+  regDate          DateTime?      @db.DateTime(6)
+  boardName        String         @db.VarChar(255)
+  description      String?        @db.VarChar(255)
+  imageHeight      BigInt?        @default(0)
+  imageWidth       BigInt?        @default(0)
+  isAttatchFileUse Boolean        @default(dbgenerated("b'0'")) @db.Bit(1)
+  isImageFileUse   Boolean        @default(dbgenerated("b'0'")) @db.Bit(1)
+  listURL          String?        @db.VarChar(255)
+  readURL          String?        @db.VarChar(255)
+  type             String         @db.VarChar(255)
+  BoardArticle     BoardArticle[]
+}
+
+model Drug65OldBeers {
+  id             BigInt    @id @default(autoincrement())
+  recommendation String?   @db.VarChar(512)
+  rationale      String?   @db.VarChar(1024)
+  chgDate        DateTime? @db.DateTime(6)
+  regDate        DateTime? @db.DateTime(6)
+  del            Boolean   @default(false)
+  engIngName     String?   @db.VarChar(256)
+
+  @@index([engIngName], map: "engIngName_IDX")
+}
+
+model DrugAllEngIng {
+  id                 BigInt    @id @default(autoincrement())
+  nation             String    @db.VarChar(8)
+  engIngNameCombined String    @db.Text
+  synonym            String?   @db.VarChar(100)
+  engIngNameOrigin   String?   @db.VarChar(50)
+  engIngName         String?   @db.VarChar(30)
+  chgDate            DateTime? @db.DateTime(6)
+  regDate            DateTime? @db.DateTime(6)
+  del                Boolean   @default(false)
+
+  @@index([engIngNameOrigin], map: "engIngNameOrigin_IDX")
+  @@index([engIngName], map: "engIngName_IDX")
+  @@index([synonym], map: "synonym_IDX")
+}
+
+model DrugAus {
+  id                           BigInt    @id @default(autoincrement())
+  artgId                       String?   @db.VarChar(256)
+  productName                  String?   @db.VarChar(256)
+  sponsorName                  String?   @db.VarChar(256)
+  activeIngredients            String?   @db.Text
+  engIngName                   String?   @db.VarChar(2048)
+  engIng2                      String?   @db.VarChar(256)
+  excipientIngredients         String?   @db.Text
+  indications                  String?   @db.Text
+  artgCategory                 String?   @db.VarChar(256)
+  approvalArea                 String?   @db.VarChar(256)
+  therapeuticType              String?   @db.VarChar(256)
+  startDate                    DateTime? @db.DateTime(6)
+  conditions                   String?   @db.Text
+  blackTriangleScheme          String?   @db.VarChar(256)
+  productType                  String?   @db.VarChar(256)
+  effectiveDate                DateTime? @db.DateTime(6)
+  indicationRequirements       String?   @db.Text
+  warnings                     String?   @db.Text
+  additionalProductInformation String?   @db.Text
+  containerType                String?   @db.VarChar(256)
+  containerMaterial            String?   @db.VarChar(256)
+  containerLifeTime            String?   @db.VarChar(256)
+  containerTemperature         String?   @db.VarChar(256)
+  containerClosure             String?   @db.VarChar(256)
+  poisonSchedule               String?   @db.VarChar(256)
+  packSize                     String?   @db.Text
+  storageConditions            String?   @db.VarChar(256)
+  componentName                String?   @db.VarChar(256)
+  dosageForm                   String?   @db.VarChar(256)
+  routeOfAdministration        String?   @db.VarChar(256)
+  visualIdentification         String?   @db.Text
+  publicSummary                String?   @db.VarChar(4)
+  consumerPatientInfo          String?   @db.VarChar(4)
+  productInfo                  String?   @db.VarChar(4)
+  chgDate                      DateTime? @db.DateTime(6)
+  regDate                      DateTime? @db.DateTime(6)
+  del                          Boolean   @default(false)
+}
+
+model DrugAusPreg {
+  id                   BigInt    @id @default(autoincrement())
+  drugName             String?   @db.VarChar(256)
+  engIngName           String?   @db.VarChar(256)
+  category             String?   @db.VarChar(256)
+  safetyStatement      String?   @db.VarChar(2048)
+  classificationLevel1 String?   @db.VarChar(256)
+  classificationLevel2 String?   @db.VarChar(256)
+  classificationLevel3 String?   @db.VarChar(256)
+  chgDate              DateTime? @db.DateTime(6)
+  regDate              DateTime? @db.DateTime(6)
+  del                  Boolean   @default(false)
+  kfda                 String?   @db.VarChar(50)
+  fda                  String?   @db.VarChar(50)
+  austga               String?   @db.VarChar(50)
+  type                 String?   @db.VarChar(50)
+  alternative          String?   @db.VarChar(50)
+}
+
+model DrugEur {
+  id                                    BigInt    @id @default(autoincrement())
+  category                              String?   @db.VarChar(256)
+  medicineName                          String?   @db.VarChar(256)
+  therapeuticArea                       String?   @db.Text
+  commonName                            String?   @db.VarChar(256)
+  activeSubstance                       String?   @db.Text
+  engIngName                            String?   @db.VarChar(2048)
+  productNumber                         String?   @db.VarChar(256)
+  patientSafety                         String?   @db.VarChar(256)
+  authorisationStatus                   String?   @db.VarChar(256)
+  atcCode                               String?   @db.VarChar(256)
+  additionalMonitoring                  String?   @db.VarChar(3)
+  generic                               String?   @db.VarChar(3)
+  biosimilar                            String?   @db.VarChar(3)
+  conditionalApproval                   String?   @db.VarChar(3)
+  exceptionalCircumstances              String?   @db.VarChar(3)
+  acceleratedAssessment                 String?   @db.VarChar(3)
+  orphanMedicine                        String?   @db.VarChar(3)
+  marketingAuthorisationDate            DateTime? @db.DateTime(6)
+  dateOfRefusalOfMarketingAuthorisation String?   @db.VarChar(256)
+  companyName                           String?   @db.VarChar(256)
+  humanPharmacotherapeuticGroup         String?   @db.VarChar(256)
+  vetPharmacotherapeuticGroup           String?   @db.VarChar(256)
+  dateOfOpinion                         DateTime? @db.DateTime(6)
+  decisionDate                          DateTime? @db.DateTime(6)
+  revisionNumber                        String?   @db.VarChar(256)
+  indication                            String?   @db.Text
+  species                               String?   @db.VarChar(256)
+  atcVetCode                            String?   @db.VarChar(256)
+  firstPublished                        DateTime? @db.DateTime(6)
+  revisionDate                          DateTime? @db.DateTime(6)
+  url                                   String?   @db.VarChar(256)
+  chgDate                               DateTime? @db.DateTime(6)
+  regDate                               DateTime? @db.DateTime(6)
+  del                                   Boolean   @default(false)
+}
+
+model DrugFdaLactation {
+  id                BigInt    @id @default(autoincrement())
+  engIngNameOrigin  String    @db.VarChar(256)
+  engIngName        String    @db.VarChar(256)
+  drugName          String?   @db.VarChar(512)
+  revised           String?   @db.VarChar(8)
+  summary           String?   @db.Text
+  levels            String?   @db.Text
+  effectsBreastfed  String?   @db.Text
+  effectsLactation  String?   @db.Text
+  referenceText     String?   @db.Text
+  substanceName     String?   @db.VarChar(256)
+  casRegistryNumber String?   @db.VarChar(256)
+  drugClass         String?   @db.VarChar(1024)
+  chgDate           DateTime? @db.DateTime(6)
+  regDate           DateTime? @db.DateTime(6)
+  del               Boolean   @default(false)
+
+  @@index([engIngName], map: "engIngName_IDX")
+}
+
+model DrugFood {
+  id         BigInt    @id @default(autoincrement())
+  engIngName String?   @db.VarChar(256)
+  food       String?   @db.VarChar(512)
+  contents   String?   @db.VarChar(1024)
+  chgDate    DateTime? @db.DateTime(6)
+  regDate    DateTime? @db.DateTime(6)
+  del        Boolean   @default(false)
+
+  @@index([engIngName], map: "engIngName_IDX")
+}
+
+model DrugInteractionEng {
+  id           BigInt    @id @default(autoincrement())
+  gubun        String?   @db.VarChar(100)
+  engIngName1  String?   @db.VarChar(256)
+  engIngName2  String?   @db.VarChar(256)
+  contents     String?   @db.VarChar(512)
+  alternatives String?   @db.VarChar(256)
+  chgDate      DateTime? @db.DateTime(6)
+  regDate      DateTime? @db.DateTime(6)
+  del          Boolean   @default(false)
+  priority     String?   @db.VarChar(50)
+
+  @@index([engIngName1, engIngName2], map: "EngIngName12_IDX")
+  @@index([engIngName1], map: "EngIngName1_IDX")
+  @@index([engIngName2], map: "EngIngName2_IDX")
+}
+
+model DrugKFDA {
+  id                BigInt    @id @default(autoincrement())
+  chgDate           DateTime? @db.DateTime(6)
+  regDate           DateTime? @db.DateTime(6)
+  del               Boolean   @default(false)
+  korProdName       String    @db.VarChar(50)
+  korProdNameOrigin String?   @db.MediumText
+  korIngName        String?   @db.VarChar(512)
+  korIngNameOrigin  String?   @db.VarChar(512)
+  engProdName       String?   @db.VarChar(50)
+  engProdNameOrigin String?   @db.MediumText
+  engIngName        String    @db.VarChar(512)
+  engIngNameOrigin  String?   @db.Text
+  perDate           String?   @db.VarChar(50)
+  medNotMed         String?   @db.VarChar(50)
+  licenseNumber     Int?
+  cancel            String?   @db.VarChar(50)
+  cancelDate        String?   @db.VarChar(50)
+  corp              String?   @db.VarChar(50)
+  addIng            String?   @db.Text
+  className         String?   @db.MediumText
+  expertMed         String?   @db.VarChar(50)
+  ingredients       String?   @db.VarChar(50)
+  permit            String?   @db.VarChar(50)
+  trade             String?   @db.VarChar(50)
+  opioids           String?   @db.VarChar(50)
+  shape             String?   @db.VarChar(50)
+  color             String?   @db.VarChar(50)
+  form              String?   @db.VarChar(50)
+  width             String?   @db.VarChar(50)
+  length            String?   @db.VarChar(50)
+  newYn             String?   @db.VarChar(50)
+  standCode         String?   @db.MediumText
+  atcCode           String?   @db.VarChar(50)
+  combine           String?   @db.VarChar(50)
+  eYakyo            Int?
+  madeBy            String?   @db.VarChar(50)
+  prodCode          String?   @db.VarChar(10)
+  engCorpName       String?   @db.VarChar(50)
+  korCorpName       String?   @db.VarChar(50)
+
+  @@index([engIngName], map: "DrugKFDA_engIngName_IDX")
+  @@index([engProdName], map: "DrugMedscape_engProdName_IDX")
+  @@index([expertMed], map: "DrugMedscape_expertMed_IDX")
+  @@index([korProdName], map: "DrugMedscape_korProdName_IDX")
+}
+
+model DrugKorEngNames {
+  id      BigInt    @id @default(autoincrement())
+  chgDate DateTime? @db.DateTime(6)
+  del     Boolean   @default(false)
+  regDate DateTime? @db.DateTime(6)
+  english String?   @db.VarChar(255)
+  korean  String?   @db.VarChar(255)
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model DrugMedscape {
+  id                   Int       @id @default(autoincrement())
+  engIngName           String?   @db.VarChar(256)
+  engIngClass          String?   @db.VarChar(256)
+  renalDoseAdult       String?   @db.VarChar(1024)
+  renalDoseAdultOrigin String?   @db.VarChar(512)
+  hepatDoseAdult       String?   @db.VarChar(1024)
+  miscDoseAdult        String?   @db.VarChar(512)
+  adverseGt10          String?   @db.VarChar(512)
+  adverse1to10         String?   @db.VarChar(512)
+  engIng1word          String    @db.VarChar(256)
+  regDate              DateTime? @db.DateTime(6)
+  chgDate              DateTime? @db.DateTime(6)
+  del                  Boolean   @default(false)
+  lactRisk             String?   @db.VarChar(255)
+  adverse_1to10        String?   @db.VarChar(255)
+  adverse_gt10         String?   @db.VarChar(255)
+  hepat_dose_adult     String?   @db.VarChar(255)
+  ing_1word            String?   @db.VarChar(255)
+  ing_class            String?   @db.VarChar(255)
+  ing_name             String?   @db.VarChar(255)
+  lact_risk            String?   @db.VarChar(255)
+  misc_dose_adult      String?   @db.VarChar(255)
+  renal_dose_adult     String?   @db.VarChar(255)
+
+  @@index([engIngName], map: "DrugMedscape_ing_name_IDX")
+}
+
+model DrugNLM_synonym {
+  id         BigInt  @id @default(autoincrement())
+  engIngName String? @db.VarChar(255)
+  syn        String? @db.VarChar(768)
+}
+
+model DrugRenalDose {
+  id               Int     @id @default(autoincrement())
+  engIngNameOrigin String? @db.VarChar(255)
+  engIngName       String? @db.VarChar(255)
+  ClinicalUse      String? @db.VarChar(512)
+  RenalDose        String? @db.VarChar(1024)
+  NormalDose       String? @db.VarChar(1024)
+  RRTdose          String? @db.VarChar(1024)
+  Pharmacokinetics String? @db.VarChar(2048)
+  Metabolism       String? @db.VarChar(2048)
+  DrugInteractions String? @db.Text
+  Administration   String? @db.VarChar(2048)
+  MoreInfo         String? @db.Text
+  Reference        String? @db.VarChar(2048)
+}
+
+model ZDrugAusPreg {
+  id                   BigInt    @id @default(autoincrement())
+  drugName             String?   @db.VarChar(256)
+  EngIng               String?   @db.VarChar(256)
+  category             String?   @db.VarChar(256)
+  safetyStatement      String?   @db.VarChar(2048)
+  classificationLevel1 String?   @db.VarChar(256)
+  classificationLevel2 String?   @db.VarChar(256)
+  classificationLevel3 String?   @db.VarChar(256)
+  chgDate              DateTime? @db.DateTime(6)
+  regDate              DateTime? @db.DateTime(6)
+  del                  Boolean   @default(false)
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model ZDrugEngKorProdNames {
+  id       Int       @id @default(autoincrement()) @db.MediumInt
+  eng_ing  String?   @db.VarChar(512)
+  kor_prod String?   @db.VarChar(512)
+  chgDate  DateTime? @db.DateTime(6)
+  regDate  DateTime? @db.DateTime(6)
+  del      Boolean   @default(false)
+
+  @@index([eng_ing], map: "DrugEngKorProdNames_eng_ing_IDX")
+  @@index([kor_prod], map: "DrugEngKorProdNames_kor_prod_IDX")
+}
+
+model ZDrugKFDA_NotEdited {
+  ProdCode      Int     @id
+  KorProdName   String? @db.MediumText
+  EngProdName   String? @db.MediumText
+  Corp          String? @db.VarChar(50)
+  PerDate       String? @db.VarChar(50)
+  MedNotMed     String? @db.VarChar(50)
+  LicenseNumber Int?
+  Cancel        String? @db.VarChar(50)
+  CancelDate    String? @db.VarChar(50)
+  KorIngName    String? @db.VarChar(512)
+  AddIng        String? @db.Text
+  Class         String? @db.MediumText
+  ExpertMed     String? @db.VarChar(50)
+  Ingredients   String? @db.VarChar(50)
+  Permit        String? @db.VarChar(50)
+  Trade         String? @db.VarChar(50)
+  Opioids       String? @db.VarChar(50)
+  Shape         String? @db.VarChar(50)
+  Color         String? @db.VarChar(50)
+  Form          String? @db.VarChar(50)
+  Width         String? @db.VarChar(50)
+  Length        String? @db.VarChar(50)
+  New           String? @db.VarChar(50)
+  StandCode     String? @db.MediumText
+  ATCCode       String? @db.VarChar(50)
+  Combine       String? @db.VarChar(50)
+  EYakyo        Int?
+  MadeBy        String? @db.VarChar(50)
+  EngIngName    String? @db.Text
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model ZDrugKorEngNames {
+  id      Int       @id @default(autoincrement()) @db.MediumInt
+  english String?   @db.VarChar(512)
+  korean  String?   @db.VarChar(512)
+  regDate DateTime? @db.DateTime(6)
+  chgDate DateTime? @db.DateTime(6)
+  del     Boolean   @default(false)
+}
+
+model ZDrugWikem {
+  id               Int       @id @default(autoincrement())
+  ing_name         String?   @db.VarChar(256)
+  preg_rate        String?   @db.VarChar(512)
+  lact_risk        String?   @db.VarChar(512)
+  renal_dose_adult String?   @db.VarChar(512)
+  renal_dose_pedia String?   @db.VarChar(512)
+  hepat_dose_adult String?   @db.VarChar(512)
+  hepat_dose_pedia String?   @db.VarChar(512)
+  adverse_ser      String?   @db.VarChar(512)
+  adverse_com      String?   @db.VarChar(512)
+  misc             String?   @db.VarChar(512)
+  ing_1word        String    @db.VarChar(256)
+  regDate          DateTime? @db.DateTime(6)
+  chgDate          DateTime? @db.DateTime(6)
+  del              Boolean
+
+  @@index([ing_name], map: "DrugWikem_ing_name_IDX")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model ZDruginteraction_KFDA1 {
+  id          Int       @id @default(autoincrement()) @db.MediumInt
+  drug1       String?   @db.VarChar(256)
+  drug2       String?   @db.VarChar(256)
+  interaction String?   @db.Text
+  regDate     DateTime? @db.DateTime(6)
+  chgDate     DateTime? @db.DateTime(6)
+  del         Boolean   @default(false)
+
+  @@index([drug1], map: "DrugInteraction_drug1_IDX")
+  @@index([drug2], map: "DrugInteraction_drug2_IDX")
+  @@index([drug1, drug2], map: "drug_interaction_drug1_IDX")
+}
+
+model ZDruginteraction_KFDA2 {
+  id          BigInt    @id @default(autoincrement())
+  Index       String?   @db.VarChar(256)
+  engIngName1 String?   @db.VarChar(256)
+  engIngName2 String?   @db.VarChar(256)
+  contents    String?   @db.VarChar(512)
+  korean      String?   @db.VarChar(256)
+  chgDate     DateTime? @db.DateTime(6)
+  regDate     DateTime? @db.DateTime(6)
+  del         Boolean   @default(false)
+
+  @@index([engIngName1, engIngName2], map: "EngIngName12_IDX")
+  @@index([engIngName1], map: "EngIngName1_IDX")
+  @@index([engIngName2], map: "EngIngName2_IDX")
+}
+
+model DrugELantacia {
+  id                  BigInt    @id @default(autoincrement())
+  engIngName          String?   @db.VarChar(256)
+  engIngNameOrigin    String?   @db.VarChar(256)
+  grade               String?   @db.VarChar(256)
+  safety              String?   @db.VarChar(256)
+  contents            String?   @db.Text
+  alternatives        String?   @db.Text
+  references          String?   @db.Text
+  group               String?   @db.VarChar(256)
+  ohtherNames         String?   @db.Text
+  oralBioavail        String?   @db.VarChar(256)
+  oralBioavailUnit    String?   @db.VarChar(256)
+  molecularWeight     String?   @db.VarChar(256)
+  molecularWeightUnit String?   @db.VarChar(256)
+  proteinBinding      String?   @db.VarChar(256)
+  proteinBindingUnit  String?   @db.VarChar(256)
+  vD                  String?   @db.VarChar(256)
+  vDUnit              String?   @db.VarChar(256)
+  pKa                 String?   @db.VarChar(256)
+  pKaUnit             String?   @db.VarChar(256)
+  tmax                String?   @db.VarChar(256)
+  tmaxUnit            String?   @db.VarChar(256)
+  tHalf               String?   @db.VarChar(256)
+  tHalfUnit           String?   @db.VarChar(256)
+  mPratio             String?   @db.VarChar(256)
+  mPRatioUnit         String?   @db.VarChar(256)
+  theoreticalDose     String?   @db.VarChar(256)
+  theoreticalDoseUnit String?   @db.VarChar(256)
+  relativeDose        String?   @db.VarChar(256)
+  relativeDoseUnit    String?   @db.VarChar(256)
+  pedRelatDose        String?   @db.VarChar(256)
+  pedRelatDoseUnit    String?   @db.VarChar(256)
+  chgDate             DateTime? @db.DateTime(6)
+  regDate             DateTime? @db.DateTime(6)
+  del                 Boolean   @default(false)
+}
+
+enum RoleName {
+  ADMIN
+  USER
+}
