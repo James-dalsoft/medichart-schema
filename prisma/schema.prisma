@@ -129,6 +129,8 @@ model ApiLog {
   params             String?              @db.VarChar(1024)
   /// 등록일
   regDate            DateTime             @default(now())
+  ip                 String?              @db.VarChar(15)
+  locales            String?              @db.VarChar(100)
   user               User?                @relation(fields: [userId], references: [id], onDelete: Cascade)
   ApiLogExtendedDrug ApiLogExtendedDrug[]
 
