@@ -332,6 +332,10 @@ model DrugAusPreg {
   austga               String?   @db.VarChar(50)
   type                 String?   @db.VarChar(50)
   alternative          String?   @db.VarChar(50)
+  kfdaOld              String?   @db.VarChar(50)
+  kfda202405           String?   @db.VarChar(50)
+  kfdaContents         String?   @db.MediumText
+  kfdaNew202405        String?   @db.VarChar(50)
 }
 
 model DrugEur {
