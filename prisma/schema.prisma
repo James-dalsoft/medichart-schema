@@ -441,7 +441,7 @@ model DrugKFDA {
   chgDate           DateTime? @db.DateTime(6)
   regDate           DateTime? @db.DateTime(6)
   del               Boolean   @default(false)
-  korProdName       String    @db.VarChar(50)
+  korProdName       String    @db.VarChar(100)
   korProdNameOrigin String?   @db.MediumText
   korIngName        String?   @db.VarChar(512)
   korIngNameOrigin  String?   @db.VarChar(512)
@@ -474,7 +474,7 @@ model DrugKFDA {
   eYakyo            Int?
   madeBy            String?   @db.VarChar(50)
   prodCode          String?   @db.VarChar(10)
-  engCorpName       String?   @db.VarChar(50)
+  engCorpName       String?   @db.VarChar(100)
   korCorpName       String?   @db.VarChar(50)
 
   @@index([engIngName], map: "DrugKFDA_engIngName_IDX")
